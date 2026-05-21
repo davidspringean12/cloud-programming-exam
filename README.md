@@ -90,11 +90,11 @@ Once the script finishes, you should see:
 ==========================================
 ```
 
-| Service   | URL                           | Expected                             |
-| --------- | ----------------------------- | ------------------------------------ |
-| Flask App | `http://<your-ip>/`           | Displays secret retrieved from Vault |
-| Grafana   | `http://<your-ip>/dashboard/` | Grafana login page                   |
-| Vault UI  | `http://<your-ip>:8200/ui`    | Vault web interface                  |
+| Service   | URL                           | Expected                                          |
+| --------- | ----------------------------- | ------------------------------------------------- |
+| Flask App | `http://<your-ip>/`           | Displays secret retrieved from Vault              |
+| Grafana   | `http://<your-ip>/dashboard/` | Grafana login page (proxied via Nginx on port 80) |
+| Vault UI  | `http://<your-ip>:8200/ui`    | Vault web interface                               |
 
 ---
 
@@ -104,6 +104,7 @@ Once the script finishes, you should see:
 - **Flask token**: The Vault root token is baked into `app.py` at generation time. If Vault restarts and issues a new token, the app will fail to authenticate until `deploy.sh` is re-run.
 - **No TLS**: All traffic is served over plain HTTP. A production setup would terminate TLS at Nginx with a valid certificate.
 - **No process supervision**: Flask runs as a background process (`&`), not a managed systemd service. It will not restart automatically on failure.
+- **Grafana must be accessed via Nginx**: Always use `http://<your-ip>/dashboard/` — going directly to port 3000 will cause redirect issues since Grafana is configured to expect traffic through the Nginx proxy.
 
 ---
 
