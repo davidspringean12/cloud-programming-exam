@@ -19,7 +19,7 @@ To achieve maximum efficiency under the "Automation Excellence" threshold and co
 
 ```bash
 # Command 1: Download the Master Deployment Script
-wget -O deploy.sh "[https://gist.githubusercontent.com/davidspringean12/8efedb94d43f2818ee9df3ad7fa6798a/raw/702958742ca51259a4bc19b5b29db429d20c5780/deploy.sh](https://gist.githubusercontent.com/davidspringean12/8efedb94d43f2818ee9df3ad7fa6798a/raw/702958742ca51259a4bc19b5b29db429d20c5780/deploy.sh)"
+wget -O deploy.sh "https://raw.githubusercontent.com/davidspringean12/cloud-programming-exam/refs/heads/main/deploy.sh"
 
 # Command 2: Elevate Script Permissions
 chmod +x deploy.sh
