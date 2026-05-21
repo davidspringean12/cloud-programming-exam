@@ -15,22 +15,35 @@ sudo apt install nginx -y
 
 # 3. Add HashiCorp Repository & Install Vault (Secret Manager)
 sudo apt-get install -y apt-transport-https software-properties-common wget
-wget -O- [https://apt.releases.hashicorp.com/gpg](https://apt.releases.hashicorp.com/gpg) | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] [https://apt.releases.hashicorp.com](https://apt.releases.hashicorp.com) \$(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
 sudo apt update && sudo apt install vault -y
 
 # 4. Start Vault in Dev Mode and AUTOMATICALLY capture the Root Token
-sudo systemctl stop vault || true
+sudo systemctl stop vault 2>/dev/null || true
 vault server -dev > /tmp/vault.log 2>&1 &
-sleep 3 # Give Vault a brief moment to boot up
+
+# Wait for Vault to be ready (poll instead of fixed sleep)
+echo "Waiting for Vault to become ready..."
+export VAULT_ADDR='http://127.0.0.1:8200'
+for i in $(seq 1 15); do
+    if vault status > /dev/null 2>&1; then
+        echo "Vault is up."
+        break
+    fi
+    if [ "$i" -eq 15 ]; then
+        echo "ERROR: Vault did not start in time. Check /tmp/vault.log"
+        exit 1
+    fi
+    sleep 1
+done
 
 # Automatically extract the fresh Root Token from the logs
-DYNAMIC_TOKEN=\$(grep "Root Token:" /tmp/vault.log | awk '{print \$3}')
-echo "Captured Active Vault Token: \$DYNAMIC_TOKEN"
+DYNAMIC_TOKEN=$(grep "Root Token:" /tmp/vault.log | awk '{print $3}')
+echo "Captured Active Vault Token: $DYNAMIC_TOKEN"
 
 # 5. Authenticate with Vault and inject our secret key
-export VAULT_ADDR='[http://127.0.0.1:8200](http://127.0.0.1:8200)'
-vault login "\$DYNAMIC_TOKEN"
+vault login "$DYNAMIC_TOKEN"
 vault kv put secret/myapp my-super-secret-key="PerfectGrade10!"
 
 # 6. Install Python, Flask, and the Vault client tools
@@ -43,7 +56,7 @@ from flask import Flask
 import hvac
 
 app = Flask(__name__)
-vault_client = hvac.Client(url='[http://127.0.0.1:8200](http://127.0.0.1:8200)', token='${DYNAMIC_TOKEN}')
+vault_client = hvac.Client(url='http://127.0.0.1:8200', token='${DYNAMIC_TOKEN}')
 
 @app.route('/')
 def home():
@@ -59,14 +72,17 @@ if __name__ == '__main__':
 EOF
 
 # 8. Start the Web Application in the background
-sudo pkill -f app.py || true
+sudo pkill -f app.py 2>/dev/null || true
 python3 app.py &
+
+# Give Flask a moment to bind to port 5000
+sleep 2
 
 # 9. Install Prometheus & Grafana (Monitoring Stack)
 sudo apt install prometheus -y
 sudo mkdir -p /etc/apt/keyrings
-wget -q -O - [https://apt.grafana.com/gpg.key](https://apt.grafana.com/gpg.key) | gpg --dearmor | sudo tee /etc/apt/keyrings/grafana.gpg > /dev/null
-echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] [https://apt.grafana.com](https://apt.grafana.com) stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
+wget -q -O - https://apt.grafana.com/gpg.key | gpg --dearmor | sudo tee /etc/apt/keyrings/grafana.gpg > /dev/null
+echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
 sudo apt update && sudo apt install grafana -y
 sudo systemctl enable --now prometheus grafana-server
 
@@ -75,10 +91,11 @@ cat << 'EOF' > /etc/grafana/grafana.ini
 [server]
 domain = localhost
 root_url = %(protocol)s://%(domain)s:%(http_port)s/dashboard/
+serve_from_sub_path = true
 EOF
 sudo systemctl restart grafana-server
 
-# 11. Overwrite Nginx configuration rules with our optimized routing
+# 11. Overwrite Nginx configuration rules with our optimised routing
 cat << 'EOF' > /etc/nginx/sites-available/default
 server {
     listen 80 default_server;
@@ -89,22 +106,30 @@ server {
     server_name _;
 
     location /dashboard/ {
-        proxy_pass [http://127.0.0.1:3000/](http://127.0.0.1:3000/);
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_pass http://127.0.0.1:3000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
     }
 
     location / {
-        proxy_pass [http://127.0.0.1:5000](http://127.0.0.1:5000);
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
     }
 }
 EOF
 
-# 12. Restart Nginx to finalize deployment
+# Validate nginx config before restarting
+sudo nginx -t
+
+# 12. Restart Nginx to finalise deployment
 sudo systemctl restart nginx
 
 echo "=========================================="
 echo " Deployment Finished Successfully!        "
+echo "=========================================="
+echo ""
+echo " Flask app:  http://localhost/"
+echo " Grafana:    http://localhost/dashboard/"
+echo " Vault UI:   http://localhost:8200/ui"
 echo "=========================================="
