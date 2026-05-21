@@ -99,7 +99,8 @@ sudo systemctl enable --now prometheus grafana-server
 cat << 'EOF' > /etc/grafana/grafana.ini
 [server]
 domain = localhost
-root_url = %(protocol)s://%(domain)s:%(http_port)s/dashboard/
+http_port = 3000
+root_url = http://localhost/dashboard/
 serve_from_sub_path = true
 EOF
 sudo systemctl restart grafana-server
@@ -115,9 +116,11 @@ server {
     server_name _;
 
     location /dashboard/ {
-        proxy_pass http://127.0.0.1:3000/;
+        proxy_pass http://127.0.0.1:3000/dashboard/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location / {
