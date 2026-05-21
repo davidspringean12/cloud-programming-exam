@@ -7,7 +7,16 @@ echo "=========================================="
 echo " Starting Full Automated Exam Deployment "
 echo "=========================================="
 
-# 1. Update system software lists
+# 1. Repair any interrupted dpkg state and clean up apt
+echo "Repairing package manager state..."
+sudo dpkg --configure -a
+sudo apt --fix-broken install -y
+sudo rm -f /var/lib/dpkg/lock-frontend
+sudo rm -f /var/lib/dpkg/lock
+sudo rm -f /var/cache/apt/archives/lock
+sudo dpkg --configure -a
+
+# Update system software lists
 sudo apt update
 
 # 2. Install Nginx (Reverse Proxy)
