@@ -55,9 +55,9 @@ echo "Captured Active Vault Token: $DYNAMIC_TOKEN"
 vault login "$DYNAMIC_TOKEN"
 vault kv put secret/myapp my-super-secret-key="PerfectGrade10!"
 
-# 6. Install Python, Flask, and the Vault client tools
-sudo apt install python3-pip python3-flask -y
-pip3 install hvac --break-system-packages
+# 6. Install Python and pip only, then install Flask and hvac via pip
+sudo apt install python3 python3-pip -y
+pip3 install flask hvac --break-system-packages
 
 # 7. Write the Python Web Application file using the dynamic token variable
 cat << EOF > app.py
